@@ -22,7 +22,8 @@ O instalador mostra no fim o endereço do painel e a senha do administrador (uma
 
 1. **Configurações** no painel: dados da empresa (saem no relatório), IP deste coletor e os roteadores.
 2. **Baixar script do Mikrotik** e importar em cada roteador (`/import nflog-mikrotik.rsc`): liga o syslog e o log de NAT (Traffic Flow/IPFIX sem destino).
-3. Recomendado: cópia externa (`COPIA_DESTINO` em `/etc/nflog/nflog.conf`) e aviso no Telegram (`TELEGRAM_TOKEN`/`TELEGRAM_CHAT`).
+3. **Sistema de gestão** (Configurações): com o NFC ERP, gere o token em *Integrações > NF Log* no NFC e informe aqui o endereço e o token. Ao registrar uma consulta com usuário identificado, o relatório sai com a qualificação do titular (nome, CPF/CNPJ, endereço, contato, contrato).
+4. Recomendado: cópia externa (`COPIA_DESTINO` em `/etc/nflog/nflog.conf`) e aviso no Telegram (`TELEGRAM_TOKEN`/`TELEGRAM_CHAT`).
 
 Para atualizar: `git -C /opt/nflog-fonte pull` e rodar o instalador de novo (mantém `.env`, banco, chaves e registros).
 

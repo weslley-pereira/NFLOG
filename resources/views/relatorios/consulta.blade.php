@@ -80,7 +80,48 @@
     </tr>
     @endforeach
 </table>
+@if(!empty($r['cadastro']))
+@php
+    $cad = $r['cadastro'];
+    $end = fn ($e) => $e ? trim(collect([trim(($e['logradouro'] ?? '') . ', ' . ($e['numero'] ?? 's/n'), ', '), $e['complemento'] ?? null, $e['bairro'] ?? null,
+        trim(($e['cidade'] ?? '') . (!empty($e['estado']) ? '/' . $e['estado'] : ''), '/'), !empty($e['cep']) ? 'CEP ' . $e['cep'] : null])->filter()->implode(' · ')) : null;
+    $doc = function ($d) {
+        $n = preg_replace('/\D/', '', (string) $d);
+        return match (strlen($n)) {
+            11 => preg_replace('/(\d{3})(\d{3})(\d{3})(\d{2})/', '$1.$2.$3-$4', $n),
+            14 => preg_replace('/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/', '$1.$2.$3/$4-$5', $n),
+            default => $d,
+        };
+    };
+    $dia = fn ($iso) => $iso ? \Illuminate\Support\Carbon::parse($iso)->setTimezone($fuso)->format('d/m/Y') : null;
+@endphp
+<h3 style="font-size:10pt;margin:10px 0 4px;color:#0f2a44">Qualificação do titular</h3>
+@foreach($cad['por_login'] as $login => $titulares)
+    @if(empty($titulares))
+    <div class="box alerta">O login <span class="mono">{{ $login }}</span> não foi encontrado no sistema de gestão.</div>
+    @endif
+    @foreach($titulares as $t)
+    <table>
+        <tr><th>{{ $t['cliente']['tipo'] === 'pj' ? 'Razão social' : 'Nome' }}</th><td>{{ $t['cliente']['nome'] }}@if(!empty($t['cliente']['nome_fantasia'])) ({{ $t['cliente']['nome_fantasia'] }})@endif</td></tr>
+        <tr><th>{{ $t['cliente']['tipo'] === 'pj' ? 'CNPJ' : 'CPF' }}</th><td class="mono">{{ $t['cliente']['documento'] ? $doc($t['cliente']['documento']) : '—' }}</td></tr>
+        @if(!empty($t['cliente']['rg']))<tr><th>RG</th><td>{{ $t['cliente']['rg'] }}</td></tr>@endif
+        @if(!empty($t['cliente']['inscricao_estadual']))<tr><th>Inscrição estadual</th><td>{{ $t['cliente']['inscricao_estadual'] }}</td></tr>@endif
+        @if(!empty($t['cliente']['nascimento']))<tr><th>{{ $t['cliente']['tipo'] === 'pj' ? 'Data de fundação' : 'Nascimento' }}</th><td>{{ \Illuminate\Support\Carbon::parse($t['cliente']['nascimento'])->format('d/m/Y') }}</td></tr>@endif
+        <tr><th>Endereço de cadastro</th><td>{{ $end($t['endereco']) ?: '—' }}</td></tr>
+        @if(!empty($t['endereco_instalacao']))<tr><th>Endereço da instalação</th><td>{{ $end($t['endereco_instalacao']) }}</td></tr>@endif
+        <tr><th>Telefones</th><td>{{ implode(' · ', $t['cliente']['telefones']) ?: '—' }}</td></tr>
+        <tr><th>E-mails</th><td>{{ implode(' · ', $t['cliente']['emails']) ?: '—' }}</td></tr>
+        <tr><th>Contrato</th><td>nº {{ $t['contrato']['numero'] ?? '—' }} · {{ $t['contrato']['status'] }} · desde {{ $dia($t['contrato']['inicio']) ?? '—' }}@if($t['contrato']['fim']) até {{ $dia($t['contrato']['fim']) }}@endif
+            @if($t['vigente_no_instante'] === false)<br><span class="nota">Pelo cadastro, este contrato não estava vigente no instante consultado: confirmar antes de responder.</span>@endif
+            @if(!$t['login_atual'])<br><span class="nota">Login hoje liberado; pertencia a este contrato.</span>@endif</td></tr>
+    </table>
+    @endforeach
+@endforeach
+@if($cad['erro'])<div class="box alerta">Não foi possível consultar o sistema de gestão: {{ $cad['erro'] }} A qualificação do titular deve ser complementada pelo cadastro do provedor.</div>@endif
+<p class="nota">Fonte: {{ $cad['fonte'] }}, consultado em {{ $dt($cad['consultado_em']) }}, para o login identificado acima.</p>
+@else
 <p class="nota">A qualificação do titular (nome, CPF/CNPJ, endereço) corresponde ao cadastro do login acima no sistema de gestão do provedor.</p>
+@endif
 @endif
 
 @if(!empty($r['nat']))

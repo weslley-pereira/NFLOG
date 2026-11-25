@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Configuracao;
+use App\Services\Cadastro;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -16,7 +17,42 @@ class ConfiguracaoController extends Controller
             // A senha da API nunca volta pra tela.
             'roteadores' => array_map(fn ($r) => array_diff_key($r, ['senha' => 1]) + ['tem_senha' => !empty($r['senha'])], Configuracao::obterJson('roteadores')),
             'ip_coletor' => Configuracao::obter('ip_coletor', ''),
+            // O token do sistema de gestão também nunca volta.
+            'gestao' => (function () {
+                $g = Configuracao::obterJson('gestao');
+                return ['tipo' => $g['tipo'] ?? 'nenhum', 'url' => $g['url'] ?? '', 'tem_token' => !empty($g['token'])];
+            })(),
         ]);
+    }
+
+    /** Sistema de gestão de onde vem a qualificação do titular no relatório. */
+    public function salvarGestao(Request $request): JsonResponse
+    {
+        $dados = $request->validate([
+            'tipo' => ['required', 'in:nenhum,nfc'],
+            'url' => ['required_if:tipo,nfc', 'nullable', 'url:http,https', 'max:200'],
+            'token' => ['nullable', 'string', 'max:300'],
+        ]);
+        $atual = Configuracao::obterJson('gestao');
+        $token = !empty($dados['token']) ? Crypt::encryptString(trim($dados['token'])) : ($atual['token'] ?? null);
+        if ($dados['tipo'] === 'nfc' && !$token) {
+            return response()->json(['message' => 'Informe o token gerado no NFC (Integrações > NF Log).'], 422);
+        }
+        Configuracao::definirJson('gestao', ['tipo' => $dados['tipo'], 'url' => rtrim((string) ($dados['url'] ?? ''), '/'), 'token' => $token]);
+        return response()->json(['mensagem' => 'Sistema de gestão salvo.']);
+    }
+
+    /** Confere URL e token com um login que não existe (fica registrado lá como teste). */
+    public function testarGestao(Cadastro $cadastro): JsonResponse
+    {
+        $conector = $cadastro->conector();
+        if (!$conector) return response()->json(['message' => 'Sistema de gestão não configurado.'], 422);
+        try {
+            $conector->buscar('teste-conexao-nflog', now());
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+        return response()->json(['mensagem' => 'Conexão com ' . $conector->nome() . ' funcionando.']);
     }
 
     public function salvarEmpresa(Request $request): JsonResponse

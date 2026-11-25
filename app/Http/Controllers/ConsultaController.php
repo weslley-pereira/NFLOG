@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Consulta;
+use App\Services\Cadastro;
 use App\Services\ConsultaIp;
 use App\Services\Relatorio;
 use Illuminate\Http\JsonResponse;
@@ -31,10 +32,11 @@ class ConsultaController extends Controller
     }
 
     /** Registra a consulta (refaz a busca no servidor) e gera o relatório. */
-    public function store(Request $request, Relatorio $relatorio): JsonResponse
+    public function store(Request $request, Relatorio $relatorio, Cadastro $cadastro): JsonResponse
     {
         [$dados, $momento] = $this->validar($request, true);
         $resultado = $this->consultaIp->buscar($dados['ip'], $dados['porta'] ?? null, $momento, $dados['protocolo'] ?? null);
+        $resultado = $cadastro->completar($resultado, $momento);
 
         $consulta = Consulta::create([
             'autoridade' => $dados['autoridade'] ?? null, 'documento' => $dados['documento'] ?? null,

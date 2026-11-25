@@ -116,7 +116,7 @@
             class="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-sm rounded-lg">
             {{ registrando ? 'Gerando...' : 'Registrar consulta e gerar relatório (PDF)' }}
           </button>
-          <p class="text-[11px] text-gray-500 text-center">O servidor refaz a consulta ao registrar e guarda o resumo SHA-256 do PDF.</p>
+          <p class="text-[11px] text-gray-500 text-center">O servidor refaz a consulta ao registrar, busca a qualificação do titular no sistema de gestão (só se identificado) e guarda o resumo SHA-256 do PDF.</p>
         </div>
       </div>
     </div>

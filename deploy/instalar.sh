@@ -241,6 +241,10 @@ if [[ ! -f /etc/nflog/tls/nflog.crt ]]; then
     chmod 0600 /etc/nflog/tls/nflog.key
 fi
 sed -e "s|@APP@|$APP|g" -e "s|@PHP@|$PHP|g" "$REPO/deploy/web/nginx-nflog.conf" > /etc/nginx/sites-available/nflog
+# nginx 1.25.1+ (Debian 13) quer "http2 on;"; o 1.22 do Debian 12 só conhece "listen ... http2".
+if dpkg --compare-versions "$(dpkg-query -W -f='${Version}' nginx)" ge 1.25.1; then
+    sed -i -e 's/ ssl http2 default_server;/ ssl default_server;/' -e 's/^    server_name _;/    http2 on;\n    server_name _;/' /etc/nginx/sites-available/nflog
+fi
 ln -sf /etc/nginx/sites-available/nflog /etc/nginx/sites-enabled/nflog
 rm -f /etc/nginx/sites-enabled/default
 nginx -t -q

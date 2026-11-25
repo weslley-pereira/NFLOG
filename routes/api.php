@@ -23,5 +23,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/configuracoes', [ConfiguracaoController::class, 'index']);
     Route::put('/configuracoes/empresa', [ConfiguracaoController::class, 'salvarEmpresa']);
     Route::put('/configuracoes/roteadores', [ConfiguracaoController::class, 'salvarRoteadores']);
+    Route::put('/configuracoes/gestao', [ConfiguracaoController::class, 'salvarGestao']);
+    Route::post('/configuracoes/gestao/testar', [ConfiguracaoController::class, 'testarGestao'])->middleware('throttle:10,1');
     Route::get('/configuracoes/script-mikrotik', [ConfiguracaoController::class, 'scriptMikrotik']);
 });

@@ -11,3 +11,4 @@
   - nginx 1.22 (Debian 12) não conhece `http2 on;` -- usar `listen 443 ssl http2`;
   - composer/npm precisam de HOME (systemd e cron rodam sem).
 - Importação de sessões PPPoE relê os últimos 5 min a cada rodada; `aplicar()` precisa continuar idempotente (mesmo roteador+login+início não é gravado de novo).
+- Sistema de gestão (conectores em `app/Services/Conectores`, orquestrados por `Cadastro`): a qualificação do titular só é buscada ao REGISTRAR a consulta e só com conclusão "identificado" (pré-visualização e ambíguo não puxam dado pessoal -- LGPD, necessidade). O retrato fica em `resultado.cadastro` da consulta. NFC: `GET /api/integracao-nflog/assinante?login=&instante=` com token de serviço (ability `nflog`, gerado em Integrações > NF Log no NFC); o NFC registra cada leitura.

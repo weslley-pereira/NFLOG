@@ -20,6 +20,23 @@
           <div><label class="rotulo">Telefone</label><input v-model="c.empresa.telefone" class="campo" /></div>
         </div>
         <button @click="salvarEmpresa" class="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg">Salvar</button>
+
+        <h2 class="text-sm font-medium text-white mt-6 mb-1 pt-4 border-t border-gray-800">Sistema de gestão (qualificação do titular)</h2>
+        <p class="text-xs text-gray-500 mb-3">Ao registrar uma consulta com usuário identificado, o NF Log busca lá o cadastro do login (nome, CPF/CNPJ, endereço) para o relatório.</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="rotulo">Sistema</label>
+            <select v-model="c.gestao.tipo" class="campo"><option value="nenhum">Nenhum (preencher à mão)</option><option value="nfc">NFC ERP</option></select>
+          </div>
+          <template v-if="c.gestao.tipo === 'nfc'">
+            <div><label class="rotulo">Endereço do NFC</label><input v-model="c.gestao.url" class="campo font-mono" placeholder="https://erp.provedor.com.br" /></div>
+            <div class="col-span-2"><label class="rotulo">Token (NFC: Integrações &gt; NF Log)</label>
+              <input v-model="c.gestao.token" type="password" class="campo font-mono" autocomplete="new-password" :placeholder="c.gestao.tem_token ? 'manter o atual' : ''" /></div>
+          </template>
+        </div>
+        <div class="flex items-center gap-2 mt-4">
+          <button @click="salvarGestao" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg">Salvar</button>
+          <button v-if="c.gestao.tipo !== 'nenhum'" @click="testarGestao" class="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs rounded-lg">Testar conexão</button>
+        </div>
       </div>
 
       <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
@@ -63,6 +80,7 @@ const aviso = (msg) => { toast.value = msg; setTimeout(() => (toast.value = null
 const carregar = async () => {
   const { data } = await api.get('/configuracoes')
   data.roteadores.forEach((r) => (r.senha = ''))
+  data.gestao.token = ''
   c.value = data
 }
 
@@ -75,6 +93,17 @@ const salvarRoteadores = async () => {
     aviso((await api.put('/configuracoes/roteadores', { ip_coletor: c.value.ip_coletor || null, roteadores: c.value.roteadores })).data.mensagem)
     await carregar()
   } catch (e) { aviso(mensagemErro(e)) }
+}
+
+const salvarGestao = async () => {
+  try {
+    aviso((await api.put('/configuracoes/gestao', { tipo: c.value.gestao.tipo, url: c.value.gestao.url || null, token: c.value.gestao.token || null })).data.mensagem)
+    await carregar()
+  } catch (e) { aviso(mensagemErro(e)) }
+}
+
+const testarGestao = async () => {
+  try { aviso((await api.post('/configuracoes/gestao/testar')).data.mensagem) } catch (e) { aviso(mensagemErro(e)) }
 }
 
 const baixarScript = async (r) => {

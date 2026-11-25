@@ -9,7 +9,12 @@ use RuntimeException;
 /** NFC ERP: Integrações > NF Log gera o token (ability "nflog"). */
 class Nfc implements Conector
 {
-    public function __construct(private readonly string $url, private readonly string $token) {}
+    /**
+     * @param ?string $ip IP interno do NFC (opcional): conecta nele mantendo o
+     *   nome do endereço (TLS confere normalmente). Para quando o servidor não
+     *   alcança o próprio domínio público (roteador sem hairpin NAT).
+     */
+    public function __construct(private readonly string $url, private readonly string $token, private readonly ?string $ip = null) {}
 
     public function nome(): string
     {
@@ -19,7 +24,13 @@ class Nfc implements Conector
     public function buscar(string $login, Carbon $instante): array
     {
         try {
-            $resposta = Http::timeout(15)->acceptJson()->withToken($this->token)
+            $requisicao = Http::timeout(15)->acceptJson()->withToken($this->token);
+            if ($this->ip) {
+                $host = parse_url($this->url, PHP_URL_HOST);
+                $porta = parse_url($this->url, PHP_URL_PORT) ?: (parse_url($this->url, PHP_URL_SCHEME) === 'http' ? 80 : 443);
+                $requisicao = $requisicao->withOptions(['curl' => [CURLOPT_RESOLVE => ["$host:$porta:{$this->ip}"]]]);
+            }
+            $resposta = $requisicao
                 ->get(rtrim($this->url, '/') . '/api/integracao-nflog/assinante', [
                     'login' => $login,
                     'instante' => $instante->toIso8601String(),

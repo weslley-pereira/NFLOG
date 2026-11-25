@@ -29,6 +29,8 @@
           </div>
           <template v-if="c.gestao.tipo === 'nfc'">
             <div><label class="rotulo">Endereço do NFC</label><input v-model="c.gestao.url" class="campo font-mono" placeholder="https://erp.provedor.com.br" /></div>
+            <div class="col-span-2"><label class="rotulo">IP interno do NFC (opcional)</label>
+              <input v-model="c.gestao.ip" class="campo font-mono" placeholder="só se este servidor não alcança o endereço acima (ex.: 10.0.0.5)" /></div>
             <div class="col-span-2"><label class="rotulo">Token (NFC: Integrações &gt; NF Log)</label>
               <input v-model="c.gestao.token" type="password" class="campo font-mono" autocomplete="new-password" :placeholder="c.gestao.tem_token ? 'manter o atual' : ''" /></div>
           </template>
@@ -97,7 +99,7 @@ const salvarRoteadores = async () => {
 
 const salvarGestao = async () => {
   try {
-    aviso((await api.put('/configuracoes/gestao', { tipo: c.value.gestao.tipo, url: c.value.gestao.url || null, token: c.value.gestao.token || null })).data.mensagem)
+    aviso((await api.put('/configuracoes/gestao', { tipo: c.value.gestao.tipo, url: c.value.gestao.url || null, ip: c.value.gestao.ip || null, token: c.value.gestao.token || null })).data.mensagem)
     await carregar()
   } catch (e) { aviso(mensagemErro(e)) }
 }

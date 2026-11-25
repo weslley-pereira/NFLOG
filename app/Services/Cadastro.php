@@ -24,7 +24,7 @@ class Cadastro
     {
         $g = Configuracao::obterJson('gestao');
         if (($g['tipo'] ?? 'nenhum') !== 'nfc' || empty($g['url']) || empty($g['token'])) return null;
-        return new Nfc($g['url'], Crypt::decryptString($g['token']));
+        return new Nfc($g['url'], Crypt::decryptString($g['token']), $g['ip'] ?? null);
     }
 
     public function completar(array $resultado, Carbon $momento): array

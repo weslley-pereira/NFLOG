@@ -20,7 +20,7 @@ class ConfiguracaoController extends Controller
             // O token do sistema de gestão também nunca volta.
             'gestao' => (function () {
                 $g = Configuracao::obterJson('gestao');
-                return ['tipo' => $g['tipo'] ?? 'nenhum', 'url' => $g['url'] ?? '', 'tem_token' => !empty($g['token'])];
+                return ['tipo' => $g['tipo'] ?? 'nenhum', 'url' => $g['url'] ?? '', 'ip' => $g['ip'] ?? '', 'tem_token' => !empty($g['token'])];
             })(),
         ]);
     }
@@ -32,13 +32,14 @@ class ConfiguracaoController extends Controller
             'tipo' => ['required', 'in:nenhum,nfc'],
             'url' => ['required_if:tipo,nfc', 'nullable', 'url:http,https', 'max:200'],
             'token' => ['nullable', 'string', 'max:300'],
+            'ip' => ['nullable', 'ip'],
         ]);
         $atual = Configuracao::obterJson('gestao');
         $token = !empty($dados['token']) ? Crypt::encryptString(trim($dados['token'])) : ($atual['token'] ?? null);
         if ($dados['tipo'] === 'nfc' && !$token) {
             return response()->json(['message' => 'Informe o token gerado no NFC (Integrações > NF Log).'], 422);
         }
-        Configuracao::definirJson('gestao', ['tipo' => $dados['tipo'], 'url' => rtrim((string) ($dados['url'] ?? ''), '/'), 'token' => $token]);
+        Configuracao::definirJson('gestao', ['tipo' => $dados['tipo'], 'url' => rtrim((string) ($dados['url'] ?? ''), '/'), 'ip' => $dados['ip'] ?? null, 'token' => $token]);
         return response()->json(['mensagem' => 'Sistema de gestão salvo.']);
     }
 

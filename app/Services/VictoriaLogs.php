@@ -25,8 +25,8 @@ class VictoriaLogs
 
         $resposta = $requisicao->post(rtrim($config['url'], '/') . '/select/logsql/query', [
             'query' => $logsql,
-            'start' => $de->copy()->utc()->format('Y-m-d\TH:i:s\Z'),
-            'end' => $ate->copy()->utc()->format('Y-m-d\TH:i:s\Z'),
+            'start' => $de->copy()->utc()->format('Y-m-d\TH:i:s.u\Z'),
+            'end' => $ate->copy()->utc()->format('Y-m-d\TH:i:s.u\Z'),
             'limit' => $limite,
         ]);
         if (!$resposta->successful()) {

@@ -1,0 +1,67 @@
+#!/bin/bash
+# NF Log -- fecha os registros dos dias anteriores:
+#  1. compacta cada <BASE>/arquivo/<pasta>/<dia>.log em .zst (só leitura);
+#  2. gera <BASE>/manifestos/<dia>.txt com o SHA-256 de cada arquivo do dia e
+#     o SHA-256 do manifesto anterior (corrente: mexer num dia quebra os seguintes);
+#  3. assina o manifesto (ssh-keygen -Y sign, chave /etc/nflog/assinatura,
+#     namespace nflog);
+#  4. copia arquivos fechados e manifestos para o destino externo, se houver;
+#  5. apaga o que passou de RETENCAO_DIAS.
+# Roda pelo nflog-fechar-dia.timer (00:20). Pode rodar de novo sem estrago.
+set -euo pipefail
+
+BASE=/srv/nflog
+RETENCAO_DIAS=400
+COPIA_DESTINO=""
+# shellcheck source=/dev/null
+. /etc/nflog/nflog.conf
+
+ARQ=$BASE/arquivo
+MAN=$BASE/manifestos
+CHAVE=/etc/nflog/assinatura
+HOJE=$(date +%F)
+
+# 1. compacta o que é de dia anterior (o de hoje ainda está sendo escrito)
+find "$ARQ" -type f -name '????-??-??.log' | sort | while read -r f; do
+    dia=$(basename "$f" .log)
+    [[ "$dia" < "$HOJE" ]] || continue
+    zstd -q -19 --rm -f "$f" -o "$f.zst"
+    chgrp nflog "$f.zst"
+    chmod 0440 "$f.zst"
+done
+
+# 2 e 3. manifesto assinado por dia fechado, em ordem (a corrente depende disso)
+find "$ARQ" -type f -name '????-??-??.log.zst' -printf '%f\n' | sed 's/\.log\.zst$//' | sort -u | while read -r dia; do
+    [[ -f "$MAN/$dia.txt" ]] && continue
+    anterior=$(find "$MAN" -maxdepth 1 -name '????-??-??.txt' -printf '%f\n' | sort | awk -v d="$dia.txt" '$0 < d' | tail -1)
+    {
+        echo "# Manifesto dos registros de $dia - NF Log ($(hostname)), gerado em $(date '+%F %T %z')"
+        if [[ -n "$anterior" ]]; then
+            echo "anterior: $(sha256sum "$MAN/$anterior" | cut -d' ' -f1) $anterior"
+        else
+            echo "anterior: nenhum (início da corrente)"
+        fi
+        (cd "$ARQ" && find . -type f -name "$dia.log.zst" | sort | xargs -r sha256sum)
+    } > "$MAN/$dia.txt.tmp"
+    mv "$MAN/$dia.txt.tmp" "$MAN/$dia.txt"
+    ssh-keygen -q -Y sign -f "$CHAVE" -n nflog "$MAN/$dia.txt"
+    chgrp nflog "$MAN/$dia.txt" "$MAN/$dia.txt.sig"
+    chmod 0440 "$MAN/$dia.txt" "$MAN/$dia.txt.sig"
+done
+
+# 4. cópia externa (só arquivos fechados; o que já existe lá não é reenviado)
+if [[ -n "$COPIA_DESTINO" ]]; then
+    SSH="ssh -i /etc/nflog/envio -o BatchMode=yes -o ConnectTimeout=20 -o UserKnownHostsFile=/etc/nflog/known_hosts -o StrictHostKeyChecking=accept-new"
+    if ! rsync -a --ignore-existing --chmod=F440,D750 -e "$SSH" \
+            --include='*/' --include='*.log.zst' --include='*.txt' --include='*.txt.sig' --exclude='*' \
+            "$ARQ" "$MAN" "$COPIA_DESTINO"; then
+        echo "nflog-fechar-dia: cópia externa falhou; tenta de novo na próxima rodada" >&2
+        touch /var/lib/nflog/copia-falhou
+    else
+        rm -f /var/lib/nflog/copia-falhou
+    fi
+fi
+
+# 5. retenção (os manifestos ficam: são pequenos e provam o que existiu)
+find "$ARQ" -type f -name '*.log.zst' -mtime +"$RETENCAO_DIAS" -delete
+find "$ARQ" -mindepth 1 -type d -empty -delete

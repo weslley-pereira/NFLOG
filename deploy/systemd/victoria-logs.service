@@ -1,0 +1,19 @@
+[Unit]
+Description=VictoriaLogs - pesquisa dos registros (NF Log)
+After=network.target
+
+[Service]
+User=victorialogs
+Group=victorialogs
+ExecStart=/usr/local/bin/victoria-logs -storageDataPath=/var/lib/victoria-logs -retentionPeriod=@RETENCAO@d -httpListenAddr=127.0.0.1:9428 -syslog.listenAddr.tcp=127.0.0.1:5140 -syslog.timezone=@FUSO@ -memory.allowedBytes=400MiB -search.maxConcurrentRequests=4 -loggerLevel=WARN
+Restart=on-failure
+MemoryMax=600M
+Nice=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/victoria-logs
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,9 @@
+[Unit]
+Description=NF Log - fecha, assina e copia os registros do dia anterior
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/nflog-fechar-dia
+Nice=15
+IOSchedulingClass=idle

@@ -1,0 +1,6 @@
+[Unit]
+Description=NF Log - vigia do log de NAT e do fechamento
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/nflog-vigiar

@@ -1,0 +1,9 @@
+[Unit]
+Description=NF Log - vigia a cada 10 min
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=10min
+
+[Install]
+WantedBy=timers.target

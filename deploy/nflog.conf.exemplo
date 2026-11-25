@@ -1,0 +1,26 @@
+# NF Log -- configuração do coletor (/etc/nflog/nflog.conf).
+# Lido pelo instalador e pelos scripts em /usr/local/sbin/nflog-*. Depois de
+# mudar REDES_PERMITIDAS ou RETENCAO_DIAS, rode o instalador de novo para
+# aplicar no rsyslog, no nfacctd e no VictoriaLogs.
+
+# Redes que podem mandar syslog (514) e log de NAT (2055): os roteadores e
+# equipamentos do provedor. Separadas por espaço.
+REDES_PERMITIDAS="10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 100.64.0.0/10"
+
+# Onde ficam os registros brutos e os manifestos assinados.
+BASE=/srv/nflog
+
+# Por quantos dias guardar (Marco Civil, art. 13: no mínimo 1 ano).
+RETENCAO_DIAS=400
+
+# Fuso dos registros e dos relatórios.
+FUSO=America/Sao_Paulo
+
+# Cópia externa (opcional): destino do rsync, ex. "nflog@backup.exemplo.com.br:"
+# O instalador cria a chave /etc/nflog/envio; no destino, libere só escrita
+# (rrsync -wo -no-del). Vazio = sem cópia externa.
+COPIA_DESTINO=""
+
+# Aviso no Telegram quando o log de NAT parar ou o fechamento falhar (opcional).
+TELEGRAM_TOKEN=""
+TELEGRAM_CHAT=""

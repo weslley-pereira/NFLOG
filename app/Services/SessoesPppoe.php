@@ -32,7 +32,9 @@ class SessoesPppoe
     public function importar(): array
     {
         $cursor = Configuracao::obter(self::CURSOR);
-        $de = $cursor ? Carbon::parse($cursor)->addMicrosecond() : now()->subDays(2);
+        // Relê os últimos 5 min a cada rodada: a fila do rsyslog pode entregar
+        // um evento com atraso. aplicar() ignora o que já foi gravado.
+        $de = $cursor ? Carbon::parse($cursor)->subMinutes(5) : now()->subDays(2);
         $ate = now();
         $resumo = ['eventos' => 0, 'abertas' => 0, 'fechadas' => 0];
 
@@ -46,9 +48,9 @@ class SessoesPppoe
             }
             if (isset($ultimo)) {
                 Configuracao::definir(self::CURSOR, $ultimo);
-                $de = Carbon::parse($ultimo)->addMicrosecond();
+                $de = Carbon::parse($ultimo);
             }
-        } while (count($linhas) === 5000);
+        } while (count($linhas) === 5000 && $resumo['eventos'] < 1000000);
 
         return $resumo;
     }
@@ -57,6 +59,9 @@ class SessoesPppoe
     {
         if (preg_match('/^(\S+) logged in, ([0-9a-f.:]+) from ([0-9A-F:]{17})/i', $msg, $m)) {
             [, $login, $ip, $mac] = $m;
+            if (SessaoPppoe::where('roteador', $roteador)->where('login', $login)->where('inicio', $quando)->exists()) {
+                return; // já importado (releitura da janela)
+            }
             SessaoPppoe::where('roteador', $roteador)->where('login', $login)->whereNull('fim')->where('inicio', '<=', $quando)
                 ->update(['fim' => $quando, 'origem_fim' => 'sucessora']);
             SessaoPppoe::create([

@@ -1,0 +1,59 @@
+#!/bin/bash
+# NF Log -- vigia: buraco no log de NAT só aparece no dia de um ofício se
+# ninguém olhar. A cada 10 min confere:
+#  - se cada roteador continua mandando NAT (arquivo do dia mexido há < 10 min);
+#  - se o fechamento de ontem saiu (depois da 01:00);
+#  - se a cópia externa está falhando.
+# Avisa no Telegram, se configurado (no máximo 1 aviso por problema a cada hora).
+# O painel mostra a mesma situação.
+BASE=/srv/nflog
+TELEGRAM_TOKEN=""
+TELEGRAM_CHAT=""
+# shellcheck source=/dev/null
+. /etc/nflog/nflog.conf
+
+ESTADO=/run/nflog-vigiar
+mkdir -p "$ESTADO"
+agora=$(date +%s)
+
+avisar() {  # $1 = chave do problema, $2 = texto
+    local marca="$ESTADO/$1"
+    [ -f "$marca" ] && [ $(( agora - $(stat -c %Y "$marca") )) -lt 3600 ] && return
+    touch "$marca"
+    echo "nflog-vigiar: $2" >&2
+    [ -n "$TELEGRAM_TOKEN" ] && [ -n "$TELEGRAM_CHAT" ] || return
+    curl -s -m 15 -o /dev/null "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
+        --data-urlencode "chat_id=$TELEGRAM_CHAT" --data-urlencode "text=⚠️ NF Log ($(hostname)): $2"
+}
+resolvido() { rm -f "$ESTADO/$1"; }
+
+for pasta in "$BASE"/arquivo/nat-*/; do
+    [ -d "$pasta" ] || continue
+    roteador=$(basename "$pasta"); roteador=${roteador#nat-}
+    hoje="$pasta$(date +%F).log"
+    idade=$(( agora - $(stat -c %Y "$hoje" 2>/dev/null || echo 0) ))
+    # Roteador sem NAT há mais de 7 dias foi desativado: não avisa mais.
+    ultimo=$(find "$pasta" -type f -mtime -7 -print -quit)
+    [ -z "$ultimo" ] && continue
+    if [ "$idade" -gt 600 ]; then
+        avisar "nat-$roteador" "log de NAT do roteador $roteador parado há mais de 10 min. Conferir o Traffic Flow no Mikrotik e o serviço nfacctd."
+    else
+        resolvido "nat-$roteador"
+    fi
+done
+
+if [ "$(date +%H)" -ge 1 ]; then
+    ontem=$(date -d yesterday +%F)
+    if find "$BASE/arquivo" -type f -name "$ontem.log*" -print -quit | grep -q . && [ ! -f "$BASE/manifestos/$ontem.txt.sig" ]; then
+        avisar fechamento "o fechamento assinado de $ontem não saiu. Conferir: journalctl -u nflog-fechar-dia"
+    else
+        resolvido fechamento
+    fi
+fi
+
+if [ -f /var/lib/nflog/copia-falhou ]; then
+    avisar copia "a cópia externa dos registros falhou no último fechamento."
+else
+    resolvido copia
+fi
+exit 0

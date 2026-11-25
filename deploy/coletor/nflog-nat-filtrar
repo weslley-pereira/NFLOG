@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""NF Log -- filtro do log de NAT.
+
+O nfacctd grava a cada minuto um JSON em /var/spool/nflog-nat/ e chama este
+script (print_trigger_exec). Aqui fica SÓ o que identifica o assinante:
+
+- eventos de NAT 4 (sessão criada) e 5 (sessão encerrada);
+- com origem em rede interna (assinante, servidor, VPN).
+
+Os registros de fluxo comum (nat_event 0) são descartados. Metade deles é de
+tráfego de volta, em que a "origem" é o servidor de destino, e guardar isso
+seria registro de acesso a aplicações (art. 14 do Marco Civil).
+
+Saída: uma linha JSON compacta por evento, anexada a
+<BASE>/arquivo/nat-<IP do roteador>/<AAAA-MM-DD>.log, que entra no
+fechamento diário assinado.
+"""
+import fcntl
+import glob
+import grp
+import ipaddress
+import json
+import os
+import shlex
+import sys
+
+SPOOL = "/var/spool/nflog-nat"
+INTERNAS = [ipaddress.ip_network(n) for n in (
+    "100.64.0.0/10", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")]
+EVENTOS = {4: "abre", 5: "fecha"}
+
+
+def base():
+    try:
+        with open("/etc/nflog/nflog.conf", encoding="utf-8") as f:
+            for linha in f:
+                if linha.strip().startswith("BASE="):
+                    return shlex.split(linha.strip()[5:])[0]
+    except (OSError, IndexError):
+        pass
+    return "/srv/nflog"
+
+
+def interno(ip):
+    try:
+        endereco = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return any(endereco in rede for rede in INTERNAS)
+
+
+def roteador(ip):
+    try:
+        return str(ipaddress.ip_address(ip))
+    except ValueError:
+        return "desconhecido"
+
+
+def processar(caminho, arquivo, gid):
+    saidas = {}
+    with open(caminho, encoding="utf-8") as f:
+        for linha in f:
+            try:
+                d = json.loads(linha)
+            except ValueError:
+                continue
+            evento = EVENTOS.get(d.get("nat_event"))
+            if not evento or not interno(d.get("ip_src", "")):
+                continue
+            quando = (d.get("timestamp_start") or d.get("stamp_inserted") or "")[:19]
+            registro = {
+                "t": quando,
+                "ev": evento,
+                "proto": d.get("ip_proto"),
+                "priv": f'{d.get("ip_src")}:{d.get("port_src")}',
+                "pub": f'{d.get("post_nat_ip_src")}:{d.get("post_nat_port_src")}',
+            }
+            chave = (roteador(d.get("peer_ip_src", "")), quando[:10] or "sem-data")
+            saidas.setdefault(chave, []).append(json.dumps(registro, separators=(",", ":")))
+    for (peer, dia), linhas in saidas.items():
+        pasta = os.path.join(arquivo, f"nat-{peer}")
+        if not os.path.isdir(pasta):
+            os.makedirs(pasta, exist_ok=True)
+            os.chown(pasta, 0, gid)
+            os.chmod(pasta, 0o750)  # o umask do nfacctd deixaria 0700 e o painel não leria
+        destino = os.path.join(pasta, f"{dia}.log")
+        novo = not os.path.exists(destino)
+        with open(destino, "a", encoding="utf-8") as f:
+            f.write("\n".join(linhas) + "\n")
+        if novo:
+            os.chown(destino, 0, gid)
+            os.chmod(destino, 0o640)
+    os.remove(caminho)
+
+
+def main():
+    arquivo = os.path.join(base(), "arquivo")
+    gid = grp.getgrnam("nflog").gr_gid
+    # Uma execução por vez (o nfacctd pode chamar de novo antes de terminar).
+    with open(os.path.join(SPOOL, ".trava"), "w") as trava:
+        fcntl.flock(trava, fcntl.LOCK_EX)
+        # O nfacctd chama este script depois de fechar o arquivo do minuto.
+        for caminho in sorted(glob.glob(os.path.join(SPOOL, "*.json"))):
+            try:
+                processar(caminho, arquivo, gid)
+            except Exception as erro:  # um arquivo ruim não trava os outros
+                print(f"nflog-nat-filtrar: {caminho}: {erro}", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()

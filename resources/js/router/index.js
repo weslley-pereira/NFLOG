@@ -13,6 +13,7 @@ const router = createRouter({
         { path: 'consulta', name: 'consulta', component: () => import('@/pages/Consulta.vue') },
         { path: 'consultas', name: 'consultas', component: () => import('@/pages/Consultas.vue') },
         { path: 'configuracoes', name: 'configuracoes', component: () => import('@/pages/Configuracoes.vue') },
+        { path: 'conta', name: 'conta', component: () => import('@/pages/Conta.vue') },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },

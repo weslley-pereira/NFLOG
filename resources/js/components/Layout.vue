@@ -36,7 +36,7 @@
 </template>
 
 <script setup>
-import { Gauge, LogOut, ScrollText, Search, Settings, FileText } from '@lucide/vue'
+import { Gauge, LogOut, ScrollText, Search, Settings, FileText, UserCog } from '@lucide/vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
@@ -47,6 +47,7 @@ const menu = [
   { to: '/consulta', rotulo: 'Nova consulta', icone: Search },
   { to: '/consultas', rotulo: 'Consultas e relatórios', icone: FileText },
   { to: '/configuracoes', rotulo: 'Configurações', icone: Settings },
+  { to: '/conta', rotulo: 'Minha conta', icone: UserCog },
 ]
 
 const sair = async () => {

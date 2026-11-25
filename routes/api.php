@@ -3,14 +3,20 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ConfiguracaoController;
 use App\Http\Controllers\ConsultaController;
+use App\Http\Controllers\ContaController;
 use App\Http\Controllers\PainelController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
+Route::post('/login/codigo', [AuthController::class, 'loginCodigo'])->middleware('throttle:5,1');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+    Route::get('/conta/2fa/novo', [ContaController::class, 'novoSegredo']);
+    Route::post('/conta/2fa/ativar', [ContaController::class, 'ativar'])->middleware('throttle:10,1');
+    Route::post('/conta/2fa/desativar', [ContaController::class, 'desativar'])->middleware('throttle:5,1');
+    Route::put('/conta/senha', [ContaController::class, 'senha'])->middleware('throttle:5,1');
 
     Route::get('/painel/saude', [PainelController::class, 'saude']);
 

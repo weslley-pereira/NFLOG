@@ -10,6 +10,9 @@
 
     <div v-if="!s" class="flex justify-center py-16"><div class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>
     <template v-else>
+      <div v-if="!auth.usuario?.dois_fatores" class="mb-4 px-4 py-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-xs text-yellow-300">
+        O painel guarda dados pessoais de assinantes: ative a verificação em duas etapas em <router-link to="/conta" class="underline">Minha conta</router-link>.
+      </div>
       <div v-if="!s.empresa_configurada" class="mb-4 px-4 py-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-xs text-yellow-300">
         Preencha os dados da empresa em <router-link to="/configuracoes" class="underline">Configurações</router-link>: eles saem no cabeçalho dos relatórios.
       </div>
@@ -31,6 +34,9 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import api from '@/services/api'
+import { useAuthStore } from '@/stores/auth'
+
+const auth = useAuthStore()
 
 const s = ref(null)
 

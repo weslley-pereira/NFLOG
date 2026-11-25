@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+/*
+ * Tema do painel administrativo (/admin), inspirado no IXC Provedor:
+ * fundo ardósia bem escuro com leve tom azul-acinzentado, cards um tom
+ * acima (bem destacados do fundo) e azul vivo estilo "material" nos
+ * destaques. As telas usam bg-gray-900, bg-blue-600, text-blue-400 etc. --
+ * em vez de trocar classe em ~90 arquivos, as escalas são redefinidas aqui.
+ * A classe é ligada no <html> pelo router só nas rotas /admin, então a
+ * Central do Assinante, o app técnico e o NFC Finanças ficam como estavam.
+ * Cores de status (green/yellow/red) não mudam.
+ */
+html.tema-painel {
+  --color-gray-50: #f7f9fa;
+  --color-gray-100: #eef1f4;
+  --color-gray-200: #dde2e7;
+  --color-gray-300: #c3cbd3;
+  --color-gray-400: #9aa5b1;
+  --color-gray-500: #6b7785;
+  --color-gray-600: #4b5866;
+  --color-gray-700: #28323d;
+  --color-gray-800: #1e2731;
+  --color-gray-900: #11171e;
+  --color-gray-950: #080c10;
+
+  /* 600 = botão primário (texto branco 4,8:1), 400 = item ativo/link */
+  --color-blue-50: #eaf4fe;
+  --color-blue-100: #cfe6fc;
+  --color-blue-200: #a6d1fa;
+  --color-blue-300: #7dbcf7;
+  --color-blue-400: #5ea8f5;
+  --color-blue-500: #2b8ef0;
+  --color-blue-600: #1a73cc;
+  --color-blue-700: #1662ad;
+  --color-blue-800: #13528f;
+  --color-blue-900: #0f3f6e;
+  --color-blue-950: #0a2a4a;
+
+  /* Menu lateral mais escuro que o conteúdo (coluna de ícones ainda mais) */
+  --cor-menu-icones: #030405;
+  --cor-menu: #05070a;
+}
+
+/* Fora do tema (não deveria acontecer -- AppLayout só existe no /admin) */
+:root {
+  --cor-menu-icones: var(--color-gray-950);
+  --cor-menu: var(--color-gray-900);
+}
+
+/*
+ * Efeito "vidro"/HUD de ficção científica no painel (aprovado 2026-10-21).
+ * Fica fora das camadas do Tailwind, então ganha das classes utilitárias
+ * sem !important. SEM backdrop-filter de propósito: além de pesar em PC
+ * fraco, ele transforma o card em "containing block" de position:fixed --
+ * modal/menu flutuante declarado dentro de um card ficaria preso nele.
+ * Flutuantes (absolute/fixed) e cabeçalhos sticky continuam sólidos.
+ */
+html.tema-painel {
+  --vidro-brilho: rgb(94 168 245 / 0.8);
+}
+/* Fundo da área de conteúdo (main do painel / raiz dos apps Técnico e Finanças):
+   brilho azul radial + grade técnica */
+html.tema-painel main,
+html.tema-painel .fundo-app {
+  background-color: #070b0f;
+  background-image:
+    radial-gradient(1100px 650px at 12% -10%, rgb(43 142 240 / 0.26), transparent 60%),
+    radial-gradient(900px 560px at 105% 110%, rgb(43 142 240 / 0.16), transparent 60%),
+    linear-gradient(rgb(94 168 245 / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(94 168 245 / 0.05) 1px, transparent 1px);
+  background-size: auto, auto, 32px 32px, 32px 32px;
+}
+html.tema-painel .fundo-app main { background: none; }
+
+/* Raiz das páginas com fundo próprio fica transparente pra mostrar o de cima */
+html.tema-painel main > .bg-gray-950 { background-color: transparent; }
+
+/* Painéis (cards, barras de topo, modais): translúcidos, borda iluminada e reflexo */
+:is(html.tema-painel main, html.tema-painel .fundo-app) .bg-gray-900:not(.absolute):not(.fixed):not(.sticky),
+html.tema-painel .quadro.quadro {
+  background-color: rgb(17 23 30 / 0.72);
+  border-color: rgb(94 168 245 / 0.16);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
+    0 8px 32px rgb(0 0 0 / 0.35);
+}
+/* Cantoneiras de HUD em "L" (8 gradientes no fundo -- sem pseudo-elemento e
+   sem mexer em position) + reflexo do topo; só em card/painel com borda */
+:is(html.tema-painel main, html.tema-painel .fundo-app) .bg-gray-900.border.rounded-xl:not(.absolute):not(.fixed):not(.sticky),
+html.tema-painel .quadro.quadro {
+  border-radius: 6px;
+  background-image:
+    linear-gradient(var(--vidro-brilho), var(--vidro-brilho)),
+    linear-gradient(var(--vidro-brilho), var(--vidro-brilho)),
+    linear-gradient(var(--vidro-brilho), var(--vidro-brilho)),
+    linear-gradient(var(--vidro-brilho), var(--vidro-brilho)),
+    linear-gradient(var(--vidro-brilho), var(--vidro-brilho)),
+    linear-gradient(var(--vidro-brilho), var(--vidro-brilho)),
+    linear-gradient(var(--vidro-brilho), var(--vidro-brilho)),
+    linear-gradient(var(--vidro-brilho), var(--vidro-brilho)),
+    linear-gradient(180deg, rgb(94 168 245 / 0.07), transparent 45%);
+  background-size: 14px 1.5px, 1.5px 14px, 14px 1.5px, 1.5px 14px, 14px 1.5px, 1.5px 14px, 14px 1.5px, 1.5px 14px, 100% 100%;
+  background-position: top left, top left, top right, top right, bottom left, bottom left, bottom right, bottom right, top left;
+  background-repeat: no-repeat;
+}
+/* Divisórias internas mais discretas sobre o vidro */
+:is(html.tema-painel main, html.tema-painel .fundo-app) .border-gray-800 { border-color: rgb(94 168 245 / 0.12); }
+
+/* Botões principais com brilho */
+:is(html.tema-painel main, html.tema-painel .fundo-app) .bg-blue-600 { box-shadow: 0 0 16px rgb(43 142 240 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.15); }
+
+/* Títulos dos quadros da Dashboard em caixa-alta espaçada (painel de controle) */
+html.tema-painel .quadro h3 { text-transform: uppercase; letter-spacing: 0.05em; font-size: 11px; color: rgb(157 200 245); }

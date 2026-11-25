@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ConfiguracaoController;
 use App\Http\Controllers\ConsultaController;
 use App\Http\Controllers\ContaController;
+use App\Http\Controllers\LicencaController;
 use App\Http\Controllers\PainelController;
 use Illuminate\Support\Facades\Route;
 
@@ -31,5 +32,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/configuracoes/roteadores', [ConfiguracaoController::class, 'salvarRoteadores']);
     Route::put('/configuracoes/gestao', [ConfiguracaoController::class, 'salvarGestao']);
     Route::post('/configuracoes/gestao/testar', [ConfiguracaoController::class, 'testarGestao'])->middleware('throttle:10,1');
+    Route::get('/licenca', [LicencaController::class, 'mostrar']);
+    Route::put('/licenca', [LicencaController::class, 'salvar'])->middleware('throttle:10,1');
+    Route::post('/licenca/verificar', [LicencaController::class, 'verificar'])->middleware('throttle:10,1');
     Route::get('/configuracoes/script-mikrotik', [ConfiguracaoController::class, 'scriptMikrotik']);
 });

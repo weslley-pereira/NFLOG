@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Consulta;
 use App\Services\Cadastro;
 use App\Services\ConsultaIp;
+use App\Services\Licenca;
 use App\Services\Relatorio;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,7 +17,14 @@ class ConsultaController extends Controller
     // Fusos que aparecem em ofício: Brasília, UTC/GMT e os demais do Brasil.
     private const FUSOS = ['America/Sao_Paulo', 'UTC', 'America/Manaus', 'America/Rio_Branco', 'America/Noronha'];
 
-    public function __construct(private readonly ConsultaIp $consultaIp) {}
+    public function __construct(private readonly ConsultaIp $consultaIp, private readonly Licenca $licenca) {}
+
+    /** Sem licença válida não há consulta nova (a coleta e os relatórios antigos seguem). */
+    private function exigirLicenca(): void
+    {
+        $estado = $this->licenca->estado();
+        abort_unless($estado['situacao'] === 'valida', 403, $estado['mensagem']);
+    }
 
     public function index(): JsonResponse
     {
@@ -27,6 +35,7 @@ class ConsultaController extends Controller
     /** Pré-visualização: roda a consulta sem registrar nada. */
     public function buscar(Request $request): JsonResponse
     {
+        $this->exigirLicenca();
         [$dados, $momento] = $this->validar($request);
         return response()->json($this->consultaIp->buscar($dados['ip'], $dados['porta'] ?? null, $momento, $dados['protocolo'] ?? null));
     }
@@ -34,6 +43,7 @@ class ConsultaController extends Controller
     /** Registra a consulta (refaz a busca no servidor) e gera o relatório. */
     public function store(Request $request, Relatorio $relatorio, Cadastro $cadastro): JsonResponse
     {
+        $this->exigirLicenca();
         [$dados, $momento] = $this->validar($request, true);
         $resultado = $this->consultaIp->buscar($dados['ip'], $dados['porta'] ?? null, $momento, $dados['protocolo'] ?? null);
         $resultado = $cadastro->completar($resultado, $momento);

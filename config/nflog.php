@@ -6,6 +6,14 @@
  * Os caminhos seguem o que o instalador (deploy/instalar.sh) monta.
  */
 return [
+    'versao' => '1.0.0',
+
+    // Central de licenças (nf-licencas): respostas assinadas com Ed25519.
+    'licencas' => [
+        'url' => env('NF_LICENCAS_URL', 'https://licenca.nortefibra.com.br'),
+        'chave_publica' => env('NF_LICENCAS_CHAVE_PUBLICA', '6T0royz0y+lvWnp9UtuKC63g4CHCml0HEwX1rB5RvG4='),
+    ],
+
     // Arquivo bruto: <base>/arquivo/<IP de origem>/<AAAA-MM-DD>.log(.zst) e
     // <base>/manifestos/<AAAA-MM-DD>.txt(.sig), fechados e assinados todo dia.
     'logs_base' => env('NFLOG_LOGS', '/srv/logs'),

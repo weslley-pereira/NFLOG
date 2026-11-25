@@ -41,6 +41,29 @@
         </div>
       </div>
 
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 xl:col-span-2">
+        <div class="flex items-center justify-between mb-1">
+          <h2 class="text-sm font-medium text-white">Licença</h2>
+          <span v-if="lic" class="text-[11px] px-2 py-0.5 rounded-full" :class="lic.situacao === 'valida' ? 'bg-green-500/15 text-green-400' : 'bg-yellow-500/15 text-yellow-300'">
+            {{ lic.situacao === 'valida' ? 'Válida' : lic.situacao === 'sem_licenca' ? 'Sem licença' : 'Inválida' }}</span>
+        </div>
+        <template v-if="lic">
+          <p class="text-xs text-gray-400 mb-3">{{ lic.mensagem }}</p>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs mb-3">
+            <div><div class="text-gray-500">Chave</div><div class="font-mono text-gray-200">{{ lic.chave || '—' }}</div></div>
+            <div><div class="text-gray-500">Cliente</div><div class="text-gray-200">{{ lic.cliente || '—' }}</div></div>
+            <div><div class="text-gray-500">Válida até</div><div class="text-gray-200">{{ lic.valido_ate ? (lic.valido_ate >= '2099' ? 'não vence' : new Date(lic.valido_ate + 'T12:00').toLocaleDateString('pt-BR')) : '—' }}</div></div>
+            <div><div class="text-gray-500">Última verificação</div><div class="text-gray-200">{{ lic.verificado_em ? new Date(lic.verificado_em).toLocaleString('pt-BR') : '—' }}</div></div>
+          </div>
+          <p v-if="lic.erro" class="text-[11px] text-yellow-300 mb-3">Última tentativa com problema: {{ lic.erro }} (vale a última verificação boa por até {{ lic.tolerancia_dias }} dias).</p>
+          <div class="flex flex-wrap items-center gap-2">
+            <input v-model="novaChave" class="campo font-mono max-w-sm" placeholder="NFLOG-XXXXX-XXXXX-XXXXX-XXXXX" />
+            <button @click="salvarLicenca" :disabled="!novaChave" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-sm rounded-lg">{{ lic.chave ? 'Trocar chave' : 'Ativar' }}</button>
+            <button v-if="lic.chave" @click="verificarLicenca" class="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs rounded-lg">Verificar agora</button>
+          </div>
+        </template>
+      </div>
+
       <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
         <h2 class="text-sm font-medium text-white mb-1">Roteadores</h2>
         <p class="text-xs text-gray-500 mb-3">O usuário da API é opcional: serve para registrar quem já estava conectado antes da instalação (leitura das sessões ativas, de hora em hora).</p>
@@ -76,6 +99,8 @@ import { ref, onMounted } from 'vue'
 import api, { mensagemErro } from '@/services/api'
 
 const c = ref(null)
+const lic = ref(null)
+const novaChave = ref('')
 const toast = ref(null)
 const aviso = (msg) => { toast.value = msg; setTimeout(() => (toast.value = null), 3500) }
 
@@ -84,6 +109,7 @@ const carregar = async () => {
   data.roteadores.forEach((r) => (r.senha = ''))
   data.gestao.token = ''
   c.value = data
+  lic.value = (await api.get('/licenca')).data
 }
 
 const salvarEmpresa = async () => {
@@ -95,6 +121,18 @@ const salvarRoteadores = async () => {
     aviso((await api.put('/configuracoes/roteadores', { ip_coletor: c.value.ip_coletor || null, roteadores: c.value.roteadores })).data.mensagem)
     await carregar()
   } catch (e) { aviso(mensagemErro(e)) }
+}
+
+const salvarLicenca = async () => {
+  try {
+    lic.value = (await api.put('/licenca', { chave: novaChave.value })).data
+    novaChave.value = ''
+    aviso(lic.value.mensagem)
+  } catch (e) { aviso(mensagemErro(e)) }
+}
+
+const verificarLicenca = async () => {
+  try { lic.value = (await api.post('/licenca/verificar')).data; aviso(lic.value.mensagem) } catch (e) { aviso(mensagemErro(e)) }
 }
 
 const salvarGestao = async () => {

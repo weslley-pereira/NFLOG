@@ -10,6 +10,9 @@
 
     <div v-if="!s" class="flex justify-center py-16"><div class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>
     <template v-else>
+      <div v-if="s.licenca && s.licenca.situacao !== 'valida'" class="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-300">
+        {{ s.licenca.mensagem }} <router-link to="/configuracoes" class="underline">Configurações</router-link>
+      </div>
       <div v-if="!auth.usuario?.dois_fatores" class="mb-4 px-4 py-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-xs text-yellow-300">
         O painel guarda dados pessoais de assinantes: ative a verificação em duas etapas em <router-link to="/conta" class="underline">Minha conta</router-link>.
       </div>

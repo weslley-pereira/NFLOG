@@ -196,6 +196,9 @@ fi
 
 IP_PRINCIPAL=$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -1)
 IP_PRINCIPAL=${IP_PRINCIPAL:-127.0.0.1}
+# SANCTUM_STATEFUL_DOMAINS=*: o painel é só SPA (sem cliente de API de terceiros) e
+# costuma ser acessado por IP, nome ou acesso remoto diferentes do IP da instalação.
+# Com o IP fixo, quem entrava por outro endereço tomava erro 500 no login.
 if [[ ! -f "$APP/.env" ]]; then
     cat > "$APP/.env" <<EOF
 APP_NAME="NF Log"
@@ -215,7 +218,7 @@ SESSION_LIFETIME=120
 SESSION_SECURE_COOKIE=true
 CACHE_STORE=database
 QUEUE_CONNECTION=sync
-SANCTUM_STATEFUL_DOMAINS=$IP_PRINCIPAL,$(hostname),$(hostname -f 2>/dev/null || hostname),localhost
+SANCTUM_STATEFUL_DOMAINS=*
 NFLOG_LOGS=$BASE
 NFLOG_FUSO=$FUSO
 EOF

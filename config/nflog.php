@@ -24,6 +24,10 @@ return [
         'senha' => env('NFLOG_VL_SENHA'),
     ],
 
+    // Endereço PÚBLICO da página /verificar impressa no relatório (QR Code).
+    // O painel pode ficar só na rede interna; esta página precisa abrir de fora.
+    'url_verificacao' => env('NFLOG_URL_VERIFICACAO', env('APP_URL')),
+
     // Fuso em que os ofícios costumam vir (horário de Brasília).
     'fuso' => env('NFLOG_FUSO', 'America/Sao_Paulo'),
 

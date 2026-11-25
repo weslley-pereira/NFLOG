@@ -9,7 +9,7 @@ class Consulta extends Model
     protected $fillable = [
         'autoridade', 'documento', 'processo', 'recebido_em', 'ip', 'porta', 'protocolo',
         'momento', 'momento_informado', 'fuso_informado', 'resultado', 'conclusao',
-        'relatorio_arquivo', 'relatorio_sha256', 'user_id',
+        'relatorio_arquivo', 'relatorio_sha256', 'user_id', 'codigo_verificacao',
     ];
 
     protected $casts = [

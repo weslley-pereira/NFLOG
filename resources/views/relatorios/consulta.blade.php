@@ -162,6 +162,18 @@
 <h2>{{ empty($r['nat']) ? '5' : '6' }}. Fundamentação</h2>
 <p class="nota">Registros de conexão mantidos pelo prazo do art. 13 da Lei 12.965/2014 (Marco Civil da Internet) e fornecidos mediante ordem judicial (art. 10, §1º e art. 22). Dados cadastrais podem ser requisitados pelas autoridades com competência legal (art. 10, §3º). Tratamento de dados pessoais conforme a Lei 13.709/2018 (LGPD), restrito ao atendimento desta solicitação.</p>
 
+<table style="margin-top:14px; border:1px solid #d5dde6">
+    <tr>
+        <td style="width:30mm; border:0; padding:6px"><img src="{{ $verificacao['qr'] }}" style="width:26mm; height:26mm"></td>
+        <td style="border:0; padding:6px 8px; vertical-align:middle">
+            <strong>Verificação de autenticidade</strong><br>
+            Leia o QR Code ou acesse <span class="mono">{{ $verificacao['url'] }}</span><br>
+            Código: <strong class="mono" style="font-size:10pt">{{ $verificacao['codigo'] }}</strong><br>
+            <span class="nota">A página mostra o resumo SHA-256 registrado deste arquivo e confere o PDF recebido no próprio navegador.</span>
+        </td>
+    </tr>
+</table>
+
 <div class="assinatura">
     {{ $empresa['responsavel'] ?: 'Responsável técnico' }}@if($empresa['cargo_responsavel']) — {{ $empresa['cargo_responsavel'] }}@endif<br>
     {{ $empresa['razao_social'] }}

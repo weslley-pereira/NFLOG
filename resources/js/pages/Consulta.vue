@@ -93,7 +93,7 @@
           </div>
 
           <div v-if="r.nat.length" class="bg-gray-900 border border-gray-800 rounded-xl overflow-x-auto">
-            <div class="px-4 py-2 text-xs text-gray-400 border-b border-gray-800">Sessões de NAT com esse IP e porta na janela pesquisada</div>
+            <div class="px-4 py-2 text-xs text-gray-400 border-b border-gray-800">{{ r.nat.some((n) => n.cobre_instante) ? 'Sessão de NAT que cobre o instante' : 'Sessões de NAT próximas do instante (nenhuma cobre)' }}<span v-if="r.nat_omitidas" class="text-gray-600"> · outras {{ r.nat_omitidas }} da janela de 24 h omitidas</span></div>
             <table class="w-full text-xs">
               <tbody><tr v-for="(n, i) in r.nat" :key="i" class="border-t border-gray-800 first:border-t-0" :class="n.cobre_instante ? 'bg-green-500/5' : ''">
                 <td class="px-4 py-1.5 text-gray-400">{{ n.protocolo.toUpperCase() }}</td>

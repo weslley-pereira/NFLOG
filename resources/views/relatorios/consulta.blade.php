@@ -125,7 +125,7 @@
 @endif
 
 @if(!empty($r['nat']))
-<h2>3. Tradução de endereços (CGNAT) no período</h2>
+<h2>3. Tradução de endereços (CGNAT) no instante</h2>
 <table class="lista">
     <tr><th>Protocolo</th><th>Origem privada</th><th>Origem pública</th><th>Abertura</th><th>Encerramento</th><th>Cobre o instante</th></tr>
     @foreach($r['nat'] as $n)
@@ -135,6 +135,9 @@
     </tr>
     @endforeach
 </table>
+@if(!empty($r['nat_omitidas']))
+<p class="nota">Outras {{ $r['nat_omitidas'] }} sessões com o mesmo endereço e porta públicos nas 24 horas anteriores não cobrem o instante consultado e foram omitidas.</p>
+@endif
 @endif
 
 <h2>{{ empty($r['nat']) ? '3' : '4' }}. Metodologia</h2>

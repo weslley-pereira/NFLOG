@@ -52,6 +52,15 @@ class ConsultaIp
         // Sem log de NAT chegando no instante (coleta parada, fora da
         // retenção), não dá pra afirmar nada: uma sessão "sem fechamento"
         // pareceria cobrir o instante só porque o log parou.
+        // Fato de poucos minutos atrás: o NAT chega com 1-2 min de atraso
+        // (o nfacctd grava por minuto). Sem registros depois do instante,
+        // ainda não dá para dizer nada.
+        if ($momento->gt(now()->subMinutes(10)) && !$this->haDadosNat($momento->copy()->addSeconds($tolerancia), now())) {
+            $resultado['conclusao'] = 'sem_dados';
+            $resultado['explicacao'] = 'Os registros de NAT desse horário ainda estão chegando (atraso de 1 a 2 minutos). Consulte de novo em alguns minutos.';
+            return $this->fechar($resultado, $dias, $pastas);
+        }
+
         if (!$this->haDadosNat($momento)) {
             $resultado['conclusao'] = 'sem_dados';
             $resultado['explicacao'] = 'Não há registros de tradução de endereços (NAT) recebidos no minuto do instante pedido: a coleta estava interrompida ou o período está fora da retenção. Não é possível afirmar quem utilizava o endereço.';
@@ -92,15 +101,25 @@ class ConsultaIp
             if ($aberta) $sessoesNat[] = $aberta + ['fecha' => null];
         }
 
+        // No resultado (e no relatório) só entra a sessão que cobre o instante:
+        // as demais do mesmo IP:porta na janela são de outros horários (e, num
+        // CGNAT não determinístico, de outros assinantes). Se nenhuma cobrir,
+        // vão as próximas (±10 min), para conferir horário, fuso e protocolo.
+        $linha = fn ($s, $cobre) => [
+            'protocolo' => $s['proto'], 'privado' => $s['priv'], 'publico' => "$ip:$porta",
+            'abre' => $s['abre']->toIso8601String(), 'fecha' => $s['fecha']?->toIso8601String(), 'cobre_instante' => $cobre,
+        ];
+        $proximas = [];
         foreach ($sessoesNat as $s) {
             $cobre = $s['abre']->copy()->subSeconds($tolerancia) <= $momento
                 && ($s['fecha'] === null || $s['fecha']->copy()->addSeconds($tolerancia) >= $momento)
                 && ($protocolo === null || $s['proto'] === $protocolo);
-            $resultado['nat'][] = [
-                'protocolo' => $s['proto'], 'privado' => $s['priv'], 'publico' => "$ip:$porta",
-                'abre' => $s['abre']->toIso8601String(), 'fecha' => $s['fecha']?->toIso8601String(), 'cobre_instante' => $cobre,
-            ];
-            if (!$cobre) continue;
+            if (!$cobre) {
+                $perto = $s['abre']->lte($momento->copy()->addMinutes(10)) && ($s['fecha'] ?? $s['abre'])->gte($momento->copy()->subMinutes(10));
+                if ($perto) $proximas[] = $linha($s, false);
+                continue;
+            }
+            $resultado['nat'][] = $linha($s, true);
 
             $sessao = SessoesPppoe::noInstante($s['priv_ip'], $momento, $tolerancia);
             if ($sessao) $this->anotarSessao($sessao, $dias, $pastas);
@@ -109,6 +128,9 @@ class ConsultaIp
                 'sessao' => $sessao ? $this->sessaoParaRelatorio($sessao) : null,
             ];
         }
+
+        if (!$resultado['nat']) $resultado['nat'] = $proximas;
+        $resultado['nat_omitidas'] = count($sessoesNat) - count($resultado['nat']);
 
         $logins = collect($resultado['candidatos'])->pluck('sessao.login')->filter()->unique();
         $privados = collect($resultado['candidatos'])->pluck('privado')->unique();
@@ -155,11 +177,11 @@ class ConsultaIp
         return $eventos;
     }
 
-    /** Chegou algum evento de NAT (de qualquer assinante) no minuto do instante? */
-    private function haDadosNat(Carbon $momento): bool
+    /** Chegou algum evento de NAT (de qualquer assinante) no minuto do instante (ou entre $momento e $ate)? */
+    private function haDadosNat(Carbon $momento, ?Carbon $ate = null): bool
     {
         $r = $this->vl->consultar('app_name:' . VictoriaLogs::frase(self::NAT_APP) . ' | stats count() n',
-            $momento->copy()->subMinute(), $momento->copy()->addMinute(), 1);
+            $ate ? $momento : $momento->copy()->subMinute(), $ate ?? $momento->copy()->addMinute(), 1);
         return (int) ($r[0]['n'] ?? 0) > 0;
     }
 

@@ -10,24 +10,24 @@
       <div class="xl:col-span-2 space-y-4">
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
           <h2 class="text-sm font-medium text-white mb-3">O que o ofício pede</h2>
-          <div class="grid grid-cols-3 gap-3">
-            <div class="col-span-2">
+          <div class="grid grid-cols-6 gap-3">
+            <div class="col-span-4">
               <label class="rotulo">Endereço IP</label>
               <input v-model.trim="f.ip" class="campo font-mono" placeholder="45.171.253.135" />
             </div>
-            <div>
+            <div class="col-span-2">
               <label class="rotulo">Porta de origem</label>
               <input v-model.number="f.porta" type="number" min="1" max="65535" class="campo font-mono" placeholder="opcional" />
             </div>
-            <div>
+            <div class="col-span-3">
               <label class="rotulo">Data</label>
-              <input v-model="f.data" type="date" class="campo" />
+              <CampoData v-model="f.data" :max="hoje" />
             </div>
-            <div>
+            <div class="col-span-3">
               <label class="rotulo">Hora</label>
               <input v-model="f.hora" type="time" step="1" class="campo" />
             </div>
-            <div>
+            <div class="col-span-3">
               <label class="rotulo">Protocolo</label>
               <select v-model="f.protocolo" class="campo">
                 <option :value="null">Não informado</option>
@@ -38,14 +38,14 @@
             <div class="col-span-3">
               <label class="rotulo">Fuso do horário informado</label>
               <select v-model="f.fuso" class="campo">
-                <option value="America/Sao_Paulo">Horário de Brasília (GMT-3)</option>
-                <option value="UTC">UTC / GMT</option>
+                <option value="America/Sao_Paulo">Brasília (GMT-3)</option>
+                <option value="UTC">UTC / GMT (GMT+0)</option>
                 <option value="America/Manaus">Amazonas (GMT-4)</option>
                 <option value="America/Rio_Branco">Acre (GMT-5)</option>
-                <option value="America/Noronha">Fernando de Noronha (GMT-2)</option>
+                <option value="America/Noronha">Noronha (GMT-2)</option>
               </select>
-              <p class="text-[11px] text-gray-500 mt-1">Plataformas como Meta e Google costumam informar em UTC. Confira no ofício.</p>
             </div>
+            <p class="col-span-6 -mt-1 text-[11px] text-gray-500">Plataformas como Meta e Google costumam informar em UTC. Confira no ofício.</p>
           </div>
           <div v-if="erro" class="mt-3 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-400">{{ erro }}</div>
           <button @click="buscar" :disabled="buscando || !f.ip || !f.data || !f.hora"
@@ -60,7 +60,7 @@
             <div><label class="rotulo">Autoridade solicitante</label><input v-model="f.autoridade" class="campo" placeholder="Ex.: Delegacia de Polícia de ..." /></div>
             <div class="grid grid-cols-2 gap-3">
               <div><label class="rotulo">Nº do ofício / mandado</label><input v-model="f.documento" class="campo" /></div>
-              <div><label class="rotulo">Recebido em</label><input v-model="f.recebido_em" type="date" class="campo" /></div>
+              <div><label class="rotulo">Recebido em</label><CampoData v-model="f.recebido_em" :max="hoje" /></div>
             </div>
             <div><label class="rotulo">Processo / procedimento</label><input v-model="f.processo" class="campo" /></div>
           </div>
@@ -127,8 +127,10 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import api, { mensagemErro } from '@/services/api'
+import CampoData from '@/components/CampoData.vue'
 
 const router = useRouter()
+const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
 const f = ref({ ip: '', porta: null, data: '', hora: '', protocolo: null, fuso: 'America/Sao_Paulo', autoridade: '', documento: '', processo: '', recebido_em: '' })
 const r = ref(null)
 const erro = ref(null)

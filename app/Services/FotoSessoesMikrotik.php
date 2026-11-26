@@ -22,10 +22,14 @@ class FotoSessoesMikrotik
         $resultado = [];
         foreach (Configuracao::obterJson('roteadores') as $r) {
             if (empty($r['ip']) || empty($r['usuario'])) continue;
+            if (empty($r['senha'])) {
+                $resultado[$r['ip']] = 'sem senha da API cadastrada (Configurações > Roteadores)';
+                continue;
+            }
             $api = new MikrotikApi();
             try {
                 if (!$api->conectar($r['ip'], (int) ($r['porta'] ?? 8728), $r['usuario'], Crypt::decryptString($r['senha'] ?? ''), 10)) {
-                    $resultado[$r['ip']] = 'falha ao conectar';
+                    $resultado[$r['ip']] = 'falha ao conectar na API (porta ' . ($r['porta'] ?? 8728) . '): confira o serviço api do Mikrotik, o usuário, a senha e o address do usuário';
                     continue;
                 }
                 $ativas = $api->consultar(['/ppp/active/print', '=.proplist=name,address,caller-id,uptime']) ?? [];

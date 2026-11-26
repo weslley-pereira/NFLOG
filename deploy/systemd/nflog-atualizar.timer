@@ -1,0 +1,10 @@
+[Unit]
+Description=NF Log - confere a cada minuto se há atualização liberada
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=1min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

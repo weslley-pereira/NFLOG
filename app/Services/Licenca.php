@@ -90,7 +90,7 @@ class Licenca
             $resposta = Http::timeout(15)->acceptJson()->post(rtrim($config['url'], '/') . '/api/v1/verificar', [
                 'chave' => $chave, 'instancia' => $this->instancia(), 'nonce' => $nonce,
                 'hostname' => substr(preg_replace('/[^A-Za-z0-9.+_-]/', '', gethostname() ?: ''), 0, 255),
-                'versao' => 'nflog-' . config('nflog.versao'),
+                'versao' => self::versao(),
             ]);
             if (!$resposta->successful()) throw new RuntimeException('a central respondeu HTTP ' . $resposta->status());
             $dados = NfLicencasAssinatura::conferir($resposta->json() ?? [], $config['chave_publica']);
@@ -111,19 +111,45 @@ class Licenca
         return $this->estado();
     }
 
-    /** Sinal de vida (5 min): a central mostra online/offline e avisa no Telegram. */
+    /** Versão instalada completa ("1.1.0+20261126.abc1234"; arquivo VERSAO do instalador). */
+    public static function versao(): string
+    {
+        $v = trim((string) @file_get_contents(base_path('VERSAO')));
+        return $v !== '' ? $v : (string) config('nflog.versao');
+    }
+
+    /**
+     * Sinal de vida (5 min): a central mostra online/offline e avisa no
+     * Telegram. Leva o andamento da atualização remota (estado.json do
+     * agente) e traz de volta o pedido, quando há versão liberada para este
+     * servidor: fica em pedido.json para o agente (root) conferir e instalar.
+     */
     public function sinal(array $problemas, bool $operando): void
     {
         $chave = $this->chave();
         if (!$chave) return;
+        $dir = config('nflog.atualizacao_dir');
+        $andamento = json_decode((string) @file_get_contents("$dir/estado.json"), true);
+        $estado = ['dns_ok' => $operando, 'avisos' => count($problemas), 'erros' => 0,
+            'versao' => self::versao(), 'titulos' => array_slice($problemas, 0, 10)]
+            + (is_array($andamento) ? ['atualizacao' => array_intersect_key($andamento, array_flip(['pedido', 'estado', 'versao', 'mensagem', 'em']))] : []);
         try {
-            Http::timeout(10)->acceptJson()->post(rtrim(config('nflog.licencas.url'), '/') . '/api/v1/sinal', [
-                'chave' => $chave, 'instancia' => $this->instancia(),
-                'estado' => ['dns_ok' => $operando, 'avisos' => count($problemas), 'erros' => 0,
-                    'versao' => config('nflog.versao'), 'titulos' => array_slice($problemas, 0, 10)],
+            $resposta = Http::timeout(10)->acceptJson()->post(rtrim(config('nflog.licencas.url'), '/') . '/api/v1/sinal', [
+                'chave' => $chave, 'instancia' => $this->instancia(), 'estado' => $estado,
             ]);
         } catch (\Throwable) {
-            // Sem internet agora: o próximo sinal tenta de novo.
+            return; // sem internet agora: o próximo sinal tenta de novo
+        }
+
+        // Só um pedido por vez, e não repete o que o agente já tratou.
+        $pedido = $resposta->json('atualizacao');
+        if (is_array($pedido) && isset($pedido['pedido'], $pedido['versao'], $pedido['manifesto'], $pedido['assinatura'])
+            && ($andamento['pedido'] ?? null) !== $pedido['pedido'] && is_dir($dir) && !is_file("$dir/pedido.json")) {
+            @file_put_contents("$dir/pedido.json", json_encode([
+                'pedido' => (string) $pedido['pedido'], 'versao' => (string) $pedido['versao'],
+                'manifesto' => (string) $pedido['manifesto'], 'assinatura' => (string) $pedido['assinatura'],
+                'chave' => $chave, 'instancia' => $this->instancia(),
+            ]));
         }
     }
 }

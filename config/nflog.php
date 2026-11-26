@@ -6,7 +6,11 @@
  * Os caminhos seguem o que o instalador (deploy/instalar.sh) monta.
  */
 return [
-    'versao' => '1.0.0',
+    'versao' => '1.1.0',
+
+    // Atualização remota: o painel deixa aqui o pedido vindo da central e lê
+    // o andamento que o agente (root, nflog-atualizar) grava.
+    'atualizacao_dir' => env('NFLOG_ATUALIZACAO_DIR', '/var/lib/nflog-atualizacao'),
 
     // Central de licenças (nf-licencas): respostas assinadas com Ed25519.
     'licencas' => [

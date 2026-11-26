@@ -1,0 +1,186 @@
+#!/usr/bin/env php
+<?php
+/**
+ * NF Log -- agente de atualização remota (root, nflog-atualizar.timer, a cada
+ * minuto). Mesmo modelo do NF-DNS.
+ *
+ * O painel (www-data) só escreve um PEDIDO em /var/lib/nflog-atualizacao/
+ * quando a central de licenças libera uma versão para este servidor. Este
+ * agente não confia no pedido: só instala se
+ *   - o manifesto tiver a assinatura da chave de pacotes da Norte Fibra
+ *     (/etc/nflog/atualizacao.pub, instalada pelo instalador, só root altera);
+ *   - o produto for o NF Log e a versão for MAIOR que a instalada;
+ *   - o .tar.gz baixado bater com o sha256 do manifesto.
+ * Antes de instalar guarda o código e o banco; se o instalador falhar, volta
+ * os dois. A coleta (rsyslog, nfacctd, fechamento) não é parada em momento
+ * nenhum. O resultado fica em estado.json, que o painel manda no sinal.
+ */
+declare(strict_types=1);
+
+const DIR = '/var/lib/nflog-atualizacao';
+const PEDIDO = DIR.'/pedido.json';
+const ESTADO = DIR.'/estado.json';
+const TRABALHO = DIR.'/trabalho';
+const BACKUP = DIR.'/backup';
+const CHAVE_PUBLICA = '/etc/nflog/atualizacao.pub';
+const PAINEL = '/var/www/nflog';
+const BANCO = '/var/lib/nflog/nflog.sqlite';
+const SERVIDOR_PADRAO = 'https://licenca.nortefibra.com.br';
+
+function registrar(string $msg): void
+{
+    fwrite(STDERR, date('Y-m-d H:i:s').' '.$msg."\n");
+}
+
+function b64(string $v): string
+{
+    return (string) base64_decode(strtr($v, '-_', '+/').str_repeat('=', (4 - strlen($v) % 4) % 4), true);
+}
+
+function versao_instalada(): ?string
+{
+    $v = trim((string) @file_get_contents(PAINEL.'/VERSAO'));
+    return preg_match('/^(\d+\.\d+\.\d+)/', $v, $m) ? $m[1] : null;
+}
+
+/** Estado para o painel mandar no sinal: atualizando, ok, falhou ou recusado. */
+function gravar_estado(string $pedido, string $estado, string $versao, string $mensagem = ''): void
+{
+    $tmp = ESTADO.'.tmp';
+    file_put_contents($tmp, json_encode([
+        'pedido' => $pedido, 'estado' => $estado, 'versao' => $versao,
+        'mensagem' => mb_substr($mensagem, -1200), 'em' => date(DATE_ATOM),
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    chmod($tmp, 0640);
+    @chgrp($tmp, 'www-data');
+    rename($tmp, ESTADO);
+    registrar("{$estado} {$versao} {$mensagem}");
+}
+
+/** NF_LICENCAS_URL do .env do painel, ou o padrão. Quem garante o pacote é a assinatura. */
+function servidor(): string
+{
+    $env = (string) @file_get_contents(PAINEL.'/.env');
+    if (preg_match('/^NF_LICENCAS_URL=["\']?(https?:\/\/[A-Za-z0-9.:-]+)["\']?\s*$/m', $env, $m)) {
+        return rtrim($m[1], '/');
+    }
+    return SERVIDOR_PADRAO;
+}
+
+function rodar(string $comando, ?string &$saida = null): int
+{
+    exec($comando.' 2>&1', $linhas, $rc);
+    $saida = implode("\n", $linhas);
+    return $rc;
+}
+
+function limpar_trabalho(): void
+{
+    if (is_dir(TRABALHO)) rodar('rm -rf '.escapeshellarg(TRABALHO));
+}
+
+/** Volta código e banco do backup e recarrega o painel. */
+function restaurar(): string
+{
+    $rc = rodar('rsync -a --delete --exclude=/storage/ '.escapeshellarg(BACKUP.'/nflog/').' '.escapeshellarg(PAINEL.'/'), $s1);
+    if (is_file(BACKUP.'/nflog.sqlite')) {
+        copy(BACKUP.'/nflog.sqlite', BANCO);
+        @chown(BANCO, 'www-data');
+        @chgrp(BANCO, 'www-data');
+    }
+    rodar('cd '.escapeshellarg(PAINEL).' && runuser -u www-data -- php artisan optimize --quiet');
+    rodar("systemctl reload 'php*-fpm'");
+    return $rc === 0 ? 'versão anterior restaurada' : "falha ao restaurar ({$s1})";
+}
+
+// ---------------------------------------------------------------- principal
+if (posix_geteuid() !== 0) {
+    registrar('precisa rodar como root');
+    exit(1);
+}
+$trava = fopen(DIR.'/.trava', 'c');
+if (! $trava || ! flock($trava, LOCK_EX | LOCK_NB)) exit(0);
+if (! is_file(PEDIDO)) exit(0);
+
+// O pedido é consumido já: falhe o que falhar, não fica tentando em loop.
+$pedido = json_decode((string) file_get_contents(PEDIDO), true);
+unlink(PEDIDO);
+$id = is_array($pedido) && preg_match('/^[a-f0-9]{16}$/', (string) ($pedido['pedido'] ?? '')) ? $pedido['pedido'] : null;
+if (! $id) {
+    registrar('pedido inválido -- ignorado');
+    exit(0);
+}
+
+$publica = base64_decode(trim((string) @file_get_contents(CHAVE_PUBLICA)), true);
+$json = b64((string) ($pedido['manifesto'] ?? ''));
+$assinatura = b64((string) ($pedido['assinatura'] ?? ''));
+$versaoPedida = preg_match('/^\d+\.\d+\.\d+$/', (string) ($pedido['versao'] ?? '')) ? $pedido['versao'] : '?';
+if (strlen((string) $publica) !== SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES || strlen($assinatura) !== SODIUM_CRYPTO_SIGN_BYTES
+    || ! sodium_crypto_sign_verify_detached($assinatura, $json, $publica)) {
+    gravar_estado($id, 'recusado', $versaoPedida, 'assinatura do pacote inválida -- nada foi instalado');
+    exit(0);
+}
+$m = json_decode($json, true);
+$versao = (string) ($m['versao'] ?? '');
+if (($m['produto'] ?? '') !== 'nflog' || ! preg_match('/^\d+\.\d+\.\d+$/', $versao)
+    || ($m['arquivo'] ?? '') !== "nflog-{$versao}.tar.gz" || ! preg_match('/^[a-f0-9]{64}$/', (string) ($m['sha256'] ?? ''))) {
+    gravar_estado($id, 'recusado', $versaoPedida, 'manifesto incompleto ou de outro produto -- nada foi instalado');
+    exit(0);
+}
+$instalada = versao_instalada();
+if (! $instalada || version_compare($versao, $instalada, '<=')) {
+    gravar_estado($id, 'recusado', $versao, "este servidor já está na {$instalada} -- só instala versão mais nova");
+    exit(0);
+}
+
+gravar_estado($id, 'atualizando', $versao, "baixando {$m['arquivo']}");
+limpar_trabalho();
+mkdir(TRABALHO, 0700);
+$arquivo = TRABALHO.'/'.$m['arquivo'];
+$corpo = json_encode(['chave' => (string) ($pedido['chave'] ?? ''), 'instancia' => (string) ($pedido['instancia'] ?? ''), 'versao' => $versao]);
+$rc = rodar(implode(' ', array_map('escapeshellarg', [
+    'curl', '-fsS', '--max-time', '900', '-H', 'Content-Type: application/json', '--data-binary', $corpo,
+    '-o', $arquivo, servidor().'/api/v1/pacote',
+])), $saida);
+if ($rc !== 0 || ! is_file($arquivo)) {
+    limpar_trabalho();
+    gravar_estado($id, 'falhou', $versao, "não consegui baixar o pacote: {$saida} -- nada foi alterado");
+    exit(0);
+}
+if (filesize($arquivo) !== (int) $m['tamanho'] || ! hash_equals($m['sha256'], hash_file('sha256', $arquivo))) {
+    limpar_trabalho();
+    gravar_estado($id, 'recusado', $versao, 'pacote baixado não confere com o manifesto assinado (sha256) -- nada foi alterado');
+    exit(0);
+}
+$rc = rodar('tar -xzf '.escapeshellarg($arquivo).' -C '.escapeshellarg(TRABALHO), $saida);
+$pasta = TRABALHO."/nflog-{$versao}";
+if ($rc !== 0 || ! is_file("{$pasta}/deploy/instalar.sh")) {
+    limpar_trabalho();
+    gravar_estado($id, 'falhou', $versao, "pacote não abriu (tar): {$saida} -- nada foi alterado");
+    exit(0);
+}
+
+// Backup do código (sem storage: relatórios e logs não são tocados) e do banco.
+gravar_estado($id, 'atualizando', $versao, 'guardando a versão atual');
+rodar('rm -rf '.escapeshellarg(BACKUP));
+mkdir(BACKUP, 0700);
+$rc = rodar('rsync -a --exclude=/storage/ '.escapeshellarg(PAINEL.'/').' '.escapeshellarg(BACKUP.'/nflog/'), $saida);
+if ($rc !== 0 || ! copy(BANCO, BACKUP.'/nflog.sqlite')) {
+    limpar_trabalho();
+    gravar_estado($id, 'falhou', $versao, "não consegui fazer o backup ({$saida}) -- nada foi alterado");
+    exit(0);
+}
+
+gravar_estado($id, 'atualizando', $versao, 'instalando (backup feito; volta sozinho se falhar)');
+$log = DIR.'/ultima-atualizacao.log';
+$rc = rodar('cd '.escapeshellarg($pasta).' && HOME=/root ./deploy/instalar.sh > '.escapeshellarg($log));
+$texto = preg_replace('/\x1b\[[0-9;]*m/', '', (string) @file_get_contents($log));
+$final = implode("\n", array_slice(array_filter(explode("\n", $texto), 'strlen'), -14));
+limpar_trabalho();
+$agora = versao_instalada();
+if ($rc === 0 && $agora === $versao) {
+    gravar_estado($id, 'ok', $versao, 'atualizado');
+} else {
+    $volta = restaurar();
+    gravar_estado($id, 'falhou', $versao, "instalador saiu com código {$rc} ({$volta}):\n{$final}");
+}

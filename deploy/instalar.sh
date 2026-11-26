@@ -142,10 +142,14 @@ for outro in pmacctd sfacctd uacctd pmbgpd pmbmpd pmtelemetryd; do
     systemctl disable --now "$outro" >/dev/null 2>&1 || true
 done
 
-for s in nflog-nat-filtrar nflog-fechar-dia nflog-vigiar; do
+for s in nflog-nat-filtrar nflog-fechar-dia nflog-vigiar nflog-atualizar; do
     install -m 0755 "$REPO/deploy/coletor/$s" "/usr/local/sbin/$s"
 done
-for u in nflog-fechar-dia.service nflog-fechar-dia.timer nflog-vigiar.service nflog-vigiar.timer; do
+# Atualização remota pela central: o painel (www-data) deixa o pedido aqui e o
+# agente (root) só instala pacote com a assinatura da chave abaixo.
+install -m 0644 "$REPO/deploy/atualizacao.pub" /etc/nflog/atualizacao.pub
+install -d -m 0770 -o root -g www-data /var/lib/nflog-atualizacao
+for u in nflog-fechar-dia.service nflog-fechar-dia.timer nflog-vigiar.service nflog-vigiar.timer nflog-atualizar.service nflog-atualizar.timer; do
     install -m 0644 "$REPO/deploy/systemd/$u" "/etc/systemd/system/$u"
 done
 systemctl daemon-reload
@@ -153,7 +157,7 @@ systemctl enable --now victoria-logs >/dev/null 2>&1
 systemctl restart victoria-logs rsyslog
 systemctl enable nfacctd >/dev/null 2>&1
 systemctl restart nfacctd
-systemctl enable --now nflog-fechar-dia.timer nflog-vigiar.timer >/dev/null 2>&1
+systemctl enable --now nflog-fechar-dia.timer nflog-vigiar.timer nflog-atualizar.timer >/dev/null 2>&1
 
 # ---------------------------------------------------------------------- painel
 passo "Painel (código em $APP)"
@@ -164,6 +168,12 @@ if [[ "$REPO" != "$APP" ]]; then
         --exclude=/database/database.sqlite "$REPO/" "$APP/"
 fi
 install -d -m 0755 "$APP/bootstrap/cache"
+# VERSAO: vem pronto no pacote de atualização; num clone do git, monta aqui.
+if [[ ! -f "$REPO/VERSAO" ]]; then
+    v=$(grep -oP "'versao' => '\K[0-9.]+" "$REPO/config/nflog.php")
+    h=$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || true)
+    echo "$v+$(date +%Y%m%d)${h:+.$h}" > "$APP/VERSAO"
+fi
 for d in app/private app/public framework/cache/data framework/sessions framework/views logs; do
     install -d "$APP/storage/$d"
 done

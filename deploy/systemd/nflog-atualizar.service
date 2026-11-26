@@ -1,0 +1,10 @@
+[Unit]
+Description=NF Log - aplica atualização liberada pela central de licenças
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/nflog-atualizar
+# O instalador roda apt-get, composer e migrations: pode levar alguns minutos.
+TimeoutStartSec=45min

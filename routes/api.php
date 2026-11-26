@@ -18,6 +18,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/conta/2fa/ativar', [ContaController::class, 'ativar'])->middleware('throttle:10,1');
     Route::post('/conta/2fa/desativar', [ContaController::class, 'desativar'])->middleware('throttle:5,1');
     Route::put('/conta/senha', [ContaController::class, 'senha'])->middleware('throttle:5,1');
+    Route::put('/conta/email', [ContaController::class, 'email'])->middleware('throttle:5,1');
 
     Route::get('/painel/saude', [PainelController::class, 'saude']);
 

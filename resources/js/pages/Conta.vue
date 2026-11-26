@@ -37,7 +37,17 @@
         </template>
       </div>
 
-      <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+      <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-6">
+        <div>
+        <h2 class="text-sm font-medium text-white mb-3">Trocar e-mail</h2>
+        <div class="space-y-3">
+          <div><label class="rotulo">Novo e-mail</label><input v-model="e.email" type="email" class="campo" autocomplete="email" /></div>
+          <div><label class="rotulo">Senha atual (para confirmar)</label><input v-model="e.senha" type="password" class="campo" autocomplete="current-password" /></div>
+        </div>
+        <button @click="trocarEmail" :disabled="!e.email || !e.senha" class="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-sm rounded-lg">Salvar novo e-mail</button>
+        </div>
+
+        <div class="pt-5 border-t border-gray-800">
         <h2 class="text-sm font-medium text-white mb-3">Trocar senha</h2>
         <div class="space-y-3">
           <div><label class="rotulo">Senha atual</label><input v-model="s.atual" type="password" class="campo" autocomplete="current-password" /></div>
@@ -45,6 +55,7 @@
           <div><label class="rotulo">Repita a nova senha</label><input v-model="s.nova_confirmation" type="password" class="campo" autocomplete="new-password" /></div>
         </div>
         <button @click="trocarSenha" class="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg">Salvar nova senha</button>
+        </div>
       </div>
     </div>
 
@@ -62,6 +73,7 @@ const novo = ref(null)
 const codigo = ref('')
 const senhaDesativar = ref('')
 const s = ref({ atual: '', nova: '', nova_confirmation: '' })
+const e = ref({ email: '', senha: '' })
 const toast = ref(null)
 const aviso = (msg) => { toast.value = msg; setTimeout(() => (toast.value = null), 3500) }
 
@@ -81,6 +93,13 @@ const desativar = async () => {
     senhaDesativar.value = ''
     await auth.carregar()
   } catch (e) { aviso(mensagemErro(e)) }
+}
+const trocarEmail = async () => {
+  try {
+    aviso((await api.put('/conta/email', e.value)).data.mensagem)
+    e.value = { email: '', senha: '' }
+    await auth.carregar()
+  } catch (err) { aviso(mensagemErro(err)) }
 }
 const trocarSenha = async () => {
   try {

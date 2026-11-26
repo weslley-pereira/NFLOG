@@ -46,6 +46,20 @@ class ContaController extends Controller
         return response()->json(['mensagem' => 'Verificação em duas etapas desativada.']);
     }
 
+    /** Troca o e-mail de login (confirma com a senha atual). */
+    public function email(Request $request): JsonResponse
+    {
+        $dados = $request->validate([
+            'email' => ['required', 'email', 'max:150', 'unique:users,email,' . $request->user()->id],
+            'senha' => ['required', 'string'],
+        ], ['email.unique' => 'Este e-mail já é de outro usuário.']);
+        if (!Hash::check($dados['senha'], $request->user()->password)) {
+            throw ValidationException::withMessages(['senha' => 'Senha incorreta.']);
+        }
+        $request->user()->forceFill(['email' => strtolower(trim($dados['email']))])->save();
+        return response()->json(['mensagem' => 'E-mail alterado. Use o novo e-mail no próximo login.']);
+    }
+
     public function senha(Request $request): JsonResponse
     {
         $request->validate([

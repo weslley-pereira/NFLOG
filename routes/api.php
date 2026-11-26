@@ -21,6 +21,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/conta/email', [ContaController::class, 'email'])->middleware('throttle:5,1');
 
     Route::get('/painel/saude', [PainelController::class, 'saude']);
+    Route::get('/painel/graficos', [PainelController::class, 'graficos']);
 
     Route::get('/consultas', [ConsultaController::class, 'index']);
     Route::post('/consultas/buscar', [ConsultaController::class, 'buscar'])->middleware('throttle:30,1');

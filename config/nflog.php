@@ -6,7 +6,7 @@
  * Os caminhos seguem o que o instalador (deploy/instalar.sh) monta.
  */
 return [
-    'versao' => '1.1.2',
+    'versao' => '1.1.3',
 
     // Atualização remota: o painel deixa aqui o pedido vindo da central e lê
     // o andamento que o agente (root, nflog-atualizar) grava.
